@@ -22,7 +22,7 @@ final class SsrfPinServiceProvider extends ServiceProvider
         $this->app->bind(PinnedCurlTransportInterface::class, GuzzleCurlTransport::class);
 
         $this->app->singleton(UrlSafetyInspector::class, function (Application $app): UrlSafetyInspector {
-            /** @var array{allowed_schemes?: list<string>, allowed_ports?: list<int>, additional_deny_cidrs?: list<string>} $config */
+            /** @var array{allowed_schemes?: list<string>, allowed_ports?: list<int>, additional_deny_cidrs?: list<string>, deny_ip_literals?: bool} $config */
             $config = $app->make(ConfigRepository::class)->get('ssrf-pin', []);
 
             return new UrlSafetyInspector(
@@ -30,6 +30,7 @@ final class SsrfPinServiceProvider extends ServiceProvider
                 $config['allowed_schemes'] ?? ['http', 'https'],
                 $config['allowed_ports'] ?? [80, 443],
                 $config['additional_deny_cidrs'] ?? [],
+                $config['deny_ip_literals'] ?? false,
             );
         });
 

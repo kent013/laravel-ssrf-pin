@@ -47,6 +47,7 @@ final class UrlSafetyInspector
         private readonly array $allowedSchemes = ['http', 'https'],
         private readonly array $allowedPorts = [80, 443],
         private readonly array $additionalDenyCidrs = [],
+        private readonly bool $denyIpLiterals = false,
     ) {}
 
     public function inspect(string $url): UrlSafetyDecision
@@ -81,6 +82,9 @@ final class UrlSafetyInspector
 
         // IP literal（filter_var が通すのは canonical のみ）
         if (filter_var($host, FILTER_VALIDATE_IP) !== false) {
+            if ($this->denyIpLiterals) {
+                return UrlSafetyDecision::deny(SsrfDenyReason::IpLiteralNotAllowed, $host, [$host]);
+            }
             $reason = $this->classifyIp($host);
             if ($reason !== null) {
                 return UrlSafetyDecision::deny($reason, $host, [$host]);

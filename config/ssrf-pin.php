@@ -14,4 +14,8 @@ return [
 
     // アプリ拡張用の追加 deny CIDR（例: 自社内部レンジ）。
     'additional_deny_cidrs' => [],
+
+    // true の場合、host が IP literal（例: http://93.184.216.34）の URL を一律拒否する。
+    // 既定 false（public IP literal は許可）。raw-IP URL を嫌うアプリは true にする。
+    'deny_ip_literals' => false,
 ];

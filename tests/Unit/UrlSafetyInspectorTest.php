@@ -87,3 +87,11 @@ it('allows IPv6-only public hosts (not fail-closed)', function () {
     $d = inspector([], ['v6.test' => ['2606:2800:220:1:248:1893:25c8:1946']])->inspect('http://v6.test');
     expect($d->allowed)->toBeTrue()->and($d->validatedIps)->toBe(['2606:2800:220:1:248:1893:25c8:1946']);
 });
+
+it('denies IP literals when denyIpLiterals is enabled', function () {
+    $i = new UrlSafetyInspector(new FakeDnsResolver, denyIpLiterals: true);
+    expect($i->inspect('http://93.184.216.34')->reason)->toBe(SsrfDenyReason::IpLiteralNotAllowed);
+    // hostname 経路は影響なし
+    $i2 = new UrlSafetyInspector(new FakeDnsResolver(['ok.test' => ['93.184.216.34']]), denyIpLiterals: true);
+    expect($i2->inspect('http://ok.test')->allowed)->toBeTrue();
+});
