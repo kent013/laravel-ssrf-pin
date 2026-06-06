@@ -1,0 +1,59 @@
+{
+    "name": "kent013/laravel-ssrf-pin",
+    "description": "SSRF-safe outbound HTTP for Laravel — validates URLs/IPs and pins each connection to the checked IP via libcurl CURLOPT_RESOLVE, re-checking every redirect hop to defeat DNS rebinding (TOCTOU).",
+    "keywords": ["laravel", "ssrf", "ssrf-protection", "dns-rebinding", "security", "http-client", "guzzle", "php"],
+    "license": "MIT",
+    "type": "library",
+    "authors": [
+        {
+            "name": "kent013"
+        }
+    ],
+    "require": {
+        "php": "^8.2",
+        "ext-curl": "*",
+        "guzzlehttp/guzzle": "^7.5",
+        "illuminate/support": "^11.0|^12.0",
+        "webmozart/assert": "^1.11"
+    },
+    "require-dev": {
+        "larastan/larastan": "^3.0",
+        "laravel/pint": "^1.0",
+        "orchestra/testbench": "^9.0|^10.0",
+        "pestphp/pest": "^3.0",
+        "phpstan/phpstan": "^2.0"
+    },
+    "suggest": {
+        "ext-intl": "Enables IDN (punycode) host normalization. Without it, non-ASCII hosts are denied (fail-secure)."
+    },
+    "autoload": {
+        "psr-4": {
+            "Kent013\\SsrfPin\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Kent013\\SsrfPin\\Tests\\": "tests/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Kent013\\SsrfPin\\SsrfPinServiceProvider"
+            ]
+        }
+    },
+    "config": {
+        "sort-packages": true,
+        "allow-plugins": {
+            "pestphp/pest-plugin": true
+        }
+    },
+    "scripts": {
+        "test": "pest",
+        "phpstan": "phpstan analyse",
+        "fix": "pint"
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
+}
