@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 use Kent013\SsrfPin\Enums\SsrfDenyReason;
-use Kent013\SsrfPin\Tests\Support\FakeDnsResolver;
+use Kent013\SsrfPin\Testing\FakeDnsResolver;
 use Kent013\SsrfPin\UrlSafetyInspector;
 
 function inspector(array $a = [], array $aaaa = []): UrlSafetyInspector

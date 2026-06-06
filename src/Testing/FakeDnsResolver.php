@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace Kent013\SsrfPin\Tests\Support;
+namespace Kent013\SsrfPin\Testing;
 
 use Kent013\SsrfPin\Contracts\DnsResolverInterface;
 
 /**
- * テスト用 DNS resolver。host ごとに A/AAAA を固定で返す。
+ * 消費者がテストで host→IP を固定するための出荷 fake DNS resolver。
  */
 final class FakeDnsResolver implements DnsResolverInterface
 {
