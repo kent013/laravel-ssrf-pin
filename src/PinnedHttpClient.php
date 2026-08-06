@@ -30,7 +30,13 @@ final class PinnedHttpClient
         private readonly int $maxRedirectHops = 5,
     ) {}
 
-    public function fetch(PinnedRequest $request, Deadline $deadline): PinnedResponse|PinnedFailure
+    /**
+     * @param  bool  $followRedirects  false のとき 3xx を追従せずそのまま返す（v0.3 で追加）。
+     *                                 取得した URL/文書を再利用する呼び出し側（OIDC discovery / JWKS /
+     *                                 token など）は false にして、302 で別ホストへ逃げた応答を
+     *                                 誤って信頼しないようにする。
+     */
+    public function fetch(PinnedRequest $request, Deadline $deadline, bool $followRedirects = true): PinnedResponse|PinnedFailure
     {
         if (! $this->transport->isAvailable()) {
             return new PinnedFailure(SsrfDenyReason::CurlHandlerUnavailable, $request->url, 0);
@@ -67,7 +73,12 @@ final class PinnedHttpClient
                 $decision->validatedIps,
             );
 
-            $hopRequest = new PinnedRequest($request->method, $current, $request->headers, $request->connectTimeout);
+            // 契約: body は初回 hop でしか送らない。redirect 先へ認証情報付き body を
+            // 再送すると、攻撃者が誘導した別ホストへ secret が漏れる（307/308 の semantics
+            // には踏み込まず「2 hop 目以降は送らない」で統一する）。
+            $hopRequest = $hop === 0
+                ? $request->withUrl($current)
+                : $request->withUrlWithoutBody($current);
             $result = $this->transport->send($hopRequest, $entry, $deadline);
             if ($result instanceof PinnedFailure) {
                 return new PinnedFailure($result->cause, $current, $hop);
@@ -75,13 +86,18 @@ final class PinnedHttpClient
 
             $status = $result->status;
             if ($status < 300 || $status >= 400) {
-                return new PinnedResponse($status, $result->headers, $current, $hopUrls);
+                return new PinnedResponse($status, $result->headers, $current, $hopUrls, $result->body);
+            }
+
+            // followRedirects=false: 3xx を追従せずそのまま返す（呼び出し側が判断する）。
+            if (! $followRedirects) {
+                return new PinnedResponse($status, $result->headers, $current, $hopUrls, $result->body);
             }
 
             // 3xx: Location 追従
             $location = $result->header('Location');
             if ($location === null || $location === '') {
-                return new PinnedResponse($status, $result->headers, $current, $hopUrls);
+                return new PinnedResponse($status, $result->headers, $current, $hopUrls, $result->body);
             }
 
             $next = $this->resolveAbsoluteUrl($current, $location);
