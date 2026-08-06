@@ -17,6 +17,9 @@ use Kent013\SsrfPin\Dtos\PinnedResponse;
  *
  * - `$responder` で (PinnedRequest, CurlResolveEntry) → PinnedResponse|PinnedFailure を返す。
  * - 受領した request / resolve entry を記録（pin が検証済み IP で適用されたかを検証可能）。
+ *   request は body / contentType を含む丸ごとの DTO なので、`lastRequest()` で
+ *   「body が transport まで届いたか」「redirect の 2 hop 目に body が再送されていないか」を検証できる。
+ * - 応答 body は `new PinnedResponse(..., body: '...')` で自由に注入できる。
  * - `$available=false` で curl 不在の fail-secure 経路を再現できる。
  */
 final class FakePinnedTransport implements PinnedCurlTransportInterface
@@ -40,6 +43,22 @@ final class FakePinnedTransport implements PinnedCurlTransportInterface
     public function isAvailable(): bool
     {
         return $this->available;
+    }
+
+    /** 直近に受領した request（body / contentType の到達検証に使う）。未送信なら null。 */
+    public function lastRequest(): ?PinnedRequest
+    {
+        $last = end($this->calls);
+
+        return $last === false ? null : $last['request'];
+    }
+
+    /** 直近に受領した pin entry。未送信なら null。 */
+    public function lastEntry(): ?CurlResolveEntry
+    {
+        $last = end($this->calls);
+
+        return $last === false ? null : $last['entry'];
     }
 
     public function send(PinnedRequest $request, CurlResolveEntry $entry, Deadline $deadline): PinnedResponse|PinnedFailure

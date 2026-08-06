@@ -12,6 +12,10 @@ return [
     // redirect 追従の最大 hop 数。
     'max_redirect_hops' => 5,
 
+    // 応答 body の上限バイト数（既定 1 MiB）。超過は切り捨てず TransportError::BodyTooLarge で
+    // 失敗させる。上限は curl の write callback 段階で効くので、巨大応答は読み切られない。
+    'max_body_bytes' => 1_048_576,
+
     // アプリ拡張用の追加 deny CIDR（例: 自社内部レンジ）。
     'additional_deny_cidrs' => [],
 

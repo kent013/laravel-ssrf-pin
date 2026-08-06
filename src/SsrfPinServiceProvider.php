@@ -19,7 +19,15 @@ final class SsrfPinServiceProvider extends ServiceProvider
         $this->mergeConfigFrom(__DIR__.'/../config/ssrf-pin.php', 'ssrf-pin');
 
         $this->app->bind(DnsResolverInterface::class, SystemDnsResolver::class);
-        $this->app->bind(PinnedCurlTransportInterface::class, GuzzleCurlTransport::class);
+
+        $this->app->bind(PinnedCurlTransportInterface::class, function (Application $app): GuzzleCurlTransport {
+            /** @var array{max_body_bytes?: int} $config */
+            $config = $app->make(ConfigRepository::class)->get('ssrf-pin', []);
+
+            return new GuzzleCurlTransport(
+                $config['max_body_bytes'] ?? GuzzleCurlTransport::DEFAULT_MAX_BODY_BYTES,
+            );
+        });
 
         $this->app->singleton(UrlSafetyInspector::class, function (Application $app): UrlSafetyInspector {
             /** @var array{allowed_schemes?: list<string>, allowed_ports?: list<int>, additional_deny_cidrs?: list<string>, deny_ip_literals?: bool} $config */
