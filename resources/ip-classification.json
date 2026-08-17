@@ -1,0 +1,101 @@
+{
+    "_comment": "IP 到達性分類表 — アドレス空間の完全な分割 (隙間なし・重複なし)。一致しなければ Public、ではない。globally_reachable が true と書いてある区間に当たったときだけ許可する。",
+    "_contract": [
+        "ipv4 は 0.0.0.0 〜 255.255.255.255 を、ipv6 は :: 〜 ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff を、",
+        "それぞれ昇順・隙間なし・重複なしで覆う。全区間が globally_reachable を持つ。",
+        "globally_reachable=false の区間は deny_reason (Kent013\\SsrfPin\\Enums\\SsrfDenyReason の値) を持ち、",
+        "globally_reachable=true の区間は deny_reason=null を持つ。",
+        "この契約は IpClassificationTable の load 時検証と回帰テストが機械的に固定する (崩れたら fail)。"
+    ],
+    "_staleness": [
+        "機械で保証できるのは『この版に対して隙間も重複も無い』ことまでである。",
+        "IANA が新しい special-purpose 割当を登録したことは検知できない (= staleness では fail-open しうる)。",
+        "四半期ごとの定期監査で registry_version を IANA の Last Updated と照合すること。"
+    ],
+    "registry_version": "2025-10-09",
+    "sources": [
+        "IANA IPv4 Special-Purpose Address Registry (Last Updated 2025-10-09)",
+        "IANA IPv6 Special-Purpose Address Registry (Last Updated 2025-10-09)",
+        "RFC 1112 §4 (240.0.0.0/4 Reserved) / RFC 5771 (224.0.0.0/4 Multicast) / RFC 4291 (ff00::/8 Multicast)"
+    ],
+    "deviations": [
+        {
+            "range": "192.0.0.0/24",
+            "iana": "IETF Protocol Assignments = False、ただし 192.0.0.9/32 (PCP Anycast) と 192.0.0.10/32 (TURN Anycast) は True",
+            "table": "親区間ごと globally_reachable=false",
+            "why": "顧客サイトの描画先になり得ないアンキャスト用途であり、厳しい方向へ倒す。0.2 の挙動も同じ。"
+        },
+        {
+            "range": "2001::/23",
+            "iana": "IETF Protocol Assignments = False、ただし 2001:1::1/2/3・2001:3::/32・2001:4:112::/48・2001:20::/28・2001:30::/28 は True",
+            "table": "親区間ごと globally_reachable=false",
+            "why": "同上。プロトコル割当空間に顧客サイトは存在しない。0.2 の挙動も同じ。"
+        },
+        {
+            "range": "64:ff9b::/96",
+            "iana": "IPv4-IPv6 Translat. = True",
+            "table": "globally_reachable=false",
+            "why": "NAT64 プレフィクスは内部の IPv4 宛先へ変換される。埋め込まれた IPv4 が private でも表面上は public に見えるため拒否する。0.2 の挙動も同じ。"
+        },
+        {
+            "range": "2000::/3 の外側すべて",
+            "iana": "個別登録のみ",
+            "table": "全域 globally_reachable=false",
+            "why": "グローバルユニキャストとして割り当てられているのは 2000::/3 だけである。外側を既定拒否にすることで、将来の登録漏れに対して fail-closed になる。"
+        }
+    ],
+    "ipv4": [
+        { "start": "0.0.0.0", "end": "0.255.255.255", "name": "this-network", "globally_reachable": false, "deny_reason": "reserved" },
+        { "start": "1.0.0.0", "end": "9.255.255.255", "name": "global-unicast", "globally_reachable": true, "deny_reason": null },
+        { "start": "10.0.0.0", "end": "10.255.255.255", "name": "private-use", "globally_reachable": false, "deny_reason": "private_range" },
+        { "start": "11.0.0.0", "end": "100.63.255.255", "name": "global-unicast", "globally_reachable": true, "deny_reason": null },
+        { "start": "100.64.0.0", "end": "100.127.255.255", "name": "shared-address-space", "globally_reachable": false, "deny_reason": "private_range" },
+        { "start": "100.128.0.0", "end": "126.255.255.255", "name": "global-unicast", "globally_reachable": true, "deny_reason": null },
+        { "start": "127.0.0.0", "end": "127.255.255.255", "name": "loopback", "globally_reachable": false, "deny_reason": "loopback" },
+        { "start": "128.0.0.0", "end": "169.253.255.255", "name": "global-unicast", "globally_reachable": true, "deny_reason": null },
+        { "start": "169.254.0.0", "end": "169.254.255.255", "name": "link-local", "globally_reachable": false, "deny_reason": "link_local" },
+        { "start": "169.255.0.0", "end": "172.15.255.255", "name": "global-unicast", "globally_reachable": true, "deny_reason": null },
+        { "start": "172.16.0.0", "end": "172.31.255.255", "name": "private-use", "globally_reachable": false, "deny_reason": "private_range" },
+        { "start": "172.32.0.0", "end": "191.255.255.255", "name": "global-unicast", "globally_reachable": true, "deny_reason": null },
+        { "start": "192.0.0.0", "end": "192.0.0.255", "name": "ietf-protocol-assignments", "globally_reachable": false, "deny_reason": "reserved" },
+        { "start": "192.0.1.0", "end": "192.0.1.255", "name": "global-unicast", "globally_reachable": true, "deny_reason": null },
+        { "start": "192.0.2.0", "end": "192.0.2.255", "name": "documentation-test-net-1", "globally_reachable": false, "deny_reason": "not_globally_reachable" },
+        { "start": "192.0.3.0", "end": "192.88.98.255", "name": "global-unicast", "globally_reachable": true, "deny_reason": null },
+        { "start": "192.88.99.0", "end": "192.88.99.255", "name": "6to4-relay-anycast-deprecated", "globally_reachable": false, "deny_reason": "not_globally_reachable" },
+        { "start": "192.88.100.0", "end": "192.167.255.255", "name": "global-unicast", "globally_reachable": true, "deny_reason": null },
+        { "start": "192.168.0.0", "end": "192.168.255.255", "name": "private-use", "globally_reachable": false, "deny_reason": "private_range" },
+        { "start": "192.169.0.0", "end": "198.17.255.255", "name": "global-unicast", "globally_reachable": true, "deny_reason": null },
+        { "start": "198.18.0.0", "end": "198.19.255.255", "name": "benchmarking", "globally_reachable": false, "deny_reason": "reserved" },
+        { "start": "198.20.0.0", "end": "198.51.99.255", "name": "global-unicast", "globally_reachable": true, "deny_reason": null },
+        { "start": "198.51.100.0", "end": "198.51.100.255", "name": "documentation-test-net-2", "globally_reachable": false, "deny_reason": "not_globally_reachable" },
+        { "start": "198.51.101.0", "end": "203.0.112.255", "name": "global-unicast", "globally_reachable": true, "deny_reason": null },
+        { "start": "203.0.113.0", "end": "203.0.113.255", "name": "documentation-test-net-3", "globally_reachable": false, "deny_reason": "not_globally_reachable" },
+        { "start": "203.0.114.0", "end": "223.255.255.255", "name": "global-unicast", "globally_reachable": true, "deny_reason": null },
+        { "start": "224.0.0.0", "end": "239.255.255.255", "name": "multicast", "globally_reachable": false, "deny_reason": "multicast" },
+        { "start": "240.0.0.0", "end": "255.255.255.255", "name": "reserved", "globally_reachable": false, "deny_reason": "reserved" }
+    ],
+    "ipv6": [
+        { "start": "::", "end": "::", "name": "unspecified", "globally_reachable": false, "deny_reason": "reserved" },
+        { "start": "::1", "end": "::1", "name": "loopback", "globally_reachable": false, "deny_reason": "loopback" },
+        { "start": "::2", "end": "64:ff9a:ffff:ffff:ffff:ffff:ffff:ffff", "name": "non-global-unicast", "globally_reachable": false, "deny_reason": "not_globally_reachable" },
+        { "start": "64:ff9b::", "end": "64:ff9b:1:ffff:ffff:ffff:ffff:ffff", "name": "ipv4-ipv6-translation", "globally_reachable": false, "deny_reason": "reserved" },
+        { "start": "64:ff9b:2::", "end": "ff:ffff:ffff:ffff:ffff:ffff:ffff:ffff", "name": "non-global-unicast", "globally_reachable": false, "deny_reason": "not_globally_reachable" },
+        { "start": "100::", "end": "100:0:0:1:ffff:ffff:ffff:ffff", "name": "discard-only-and-dummy-prefix", "globally_reachable": false, "deny_reason": "reserved" },
+        { "start": "100:0:0:2::", "end": "1fff:ffff:ffff:ffff:ffff:ffff:ffff:ffff", "name": "non-global-unicast", "globally_reachable": false, "deny_reason": "not_globally_reachable" },
+        { "start": "2000::", "end": "2000:ffff:ffff:ffff:ffff:ffff:ffff:ffff", "name": "global-unicast", "globally_reachable": true, "deny_reason": null },
+        { "start": "2001::", "end": "2001:1ff:ffff:ffff:ffff:ffff:ffff:ffff", "name": "ietf-protocol-assignments", "globally_reachable": false, "deny_reason": "reserved" },
+        { "start": "2001:200::", "end": "2001:db7:ffff:ffff:ffff:ffff:ffff:ffff", "name": "global-unicast", "globally_reachable": true, "deny_reason": null },
+        { "start": "2001:db8::", "end": "2001:db8:ffff:ffff:ffff:ffff:ffff:ffff", "name": "documentation", "globally_reachable": false, "deny_reason": "not_globally_reachable" },
+        { "start": "2001:db9::", "end": "2001:ffff:ffff:ffff:ffff:ffff:ffff:ffff", "name": "global-unicast", "globally_reachable": true, "deny_reason": null },
+        { "start": "2002::", "end": "2002:ffff:ffff:ffff:ffff:ffff:ffff:ffff", "name": "6to4-deprecated", "globally_reachable": false, "deny_reason": "not_globally_reachable" },
+        { "start": "2003::", "end": "3ffe:ffff:ffff:ffff:ffff:ffff:ffff:ffff", "name": "global-unicast", "globally_reachable": true, "deny_reason": null },
+        { "start": "3fff::", "end": "3fff:fff:ffff:ffff:ffff:ffff:ffff:ffff", "name": "documentation", "globally_reachable": false, "deny_reason": "not_globally_reachable" },
+        { "start": "3fff:1000::", "end": "3fff:ffff:ffff:ffff:ffff:ffff:ffff:ffff", "name": "global-unicast", "globally_reachable": true, "deny_reason": null },
+        { "start": "4000::", "end": "fbff:ffff:ffff:ffff:ffff:ffff:ffff:ffff", "name": "non-global-unicast", "globally_reachable": false, "deny_reason": "not_globally_reachable" },
+        { "start": "fc00::", "end": "fdff:ffff:ffff:ffff:ffff:ffff:ffff:ffff", "name": "unique-local", "globally_reachable": false, "deny_reason": "private_range" },
+        { "start": "fe00::", "end": "fe7f:ffff:ffff:ffff:ffff:ffff:ffff:ffff", "name": "non-global-unicast", "globally_reachable": false, "deny_reason": "not_globally_reachable" },
+        { "start": "fe80::", "end": "febf:ffff:ffff:ffff:ffff:ffff:ffff:ffff", "name": "link-local-unicast", "globally_reachable": false, "deny_reason": "link_local" },
+        { "start": "fec0::", "end": "feff:ffff:ffff:ffff:ffff:ffff:ffff:ffff", "name": "site-local-deprecated", "globally_reachable": false, "deny_reason": "not_globally_reachable" },
+        { "start": "ff00::", "end": "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff", "name": "multicast", "globally_reachable": false, "deny_reason": "multicast" }
+    ]
+}
