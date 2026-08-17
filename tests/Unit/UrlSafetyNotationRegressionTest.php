@@ -43,8 +43,6 @@ it('denies the ranges the enumerated 0.2 deny list let through', function (strin
     'IPv6 documentation 3fff' => ['http://[3fff::1]/', SsrfDenyReason::NotGloballyReachable],
     'IPv6 6to4' => ['http://[2002::1]/', SsrfDenyReason::NotGloballyReachable],
     'SRv6 SIDs' => ['http://[5f00::1]/', SsrfDenyReason::NotGloballyReachable],
-    'ECS IPv6 task metadata' => ['http://[fd00:ec2::254]/', SsrfDenyReason::PrivateRange],
-    'CGNAT' => ['http://100.64.0.1/', SsrfDenyReason::PrivateRange],
 ]);
 
 it('keeps the classic categories on the ranges 0.2 already denied', function (string $url, SsrfDenyReason $reason) {
@@ -69,6 +67,10 @@ it('keeps the classic categories on the ranges 0.2 already denied', function (st
     'ipv6 NAT64' => ['http://[64:ff9b::1]/', SsrfDenyReason::Reserved],
     'ipv6 discard-only' => ['http://[100::1]/', SsrfDenyReason::Reserved],
     'ipv6 ietf protocol assignments' => ['http://[2001:1::1]/', SsrfDenyReason::Reserved],
+    // 0.2 も拒否していた範囲（ECS のタスクメタデータ宛先を含む）。反転で緩まないことの pin。
+    'CGNAT' => ['http://100.64.0.1/', SsrfDenyReason::PrivateRange],
+    'ECS task role endpoint' => ['http://169.254.170.2/', SsrfDenyReason::LinkLocal],
+    'ECS IPv6 task metadata' => ['http://[fd00:ec2::254]/', SsrfDenyReason::PrivateRange],
 ]);
 
 it('allows addresses the table classifies as globally reachable', function (string $url) {

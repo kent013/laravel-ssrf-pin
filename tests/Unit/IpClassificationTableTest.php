@@ -123,6 +123,31 @@ it('rejects an unknown deny reason', function () {
     expect(fn () => IpClassificationTable::fromJson($json))->toThrow(RuntimeException::class);
 });
 
+it('routes every interval endpoint through the binary search back to its own interval', function () {
+    // 区間列の連続性だけでは、二分探索と端点の包含（両端を含む）が正しいことは言えない。
+    // 全 50 区間の下端・上端を実際に検索し、同じ区間に戻ることと verdict / reason が
+    // 表のとおりであることを 1 件ずつ確かめる。
+    $table = IpClassificationTable::default();
+
+    foreach ([...$table->ipv4Intervals(), ...$table->ipv6Intervals()] as $interval) {
+        foreach ([$interval->startBinary, $interval->endBinary] as $binary) {
+            $address = inet_ntop($binary);
+            $found = $table->intervalFor((string) $address);
+
+            expect($found)->not->toBeNull("no interval for {$address}");
+            expect($found?->startBinary)->toBe($interval->startBinary, "wrong interval for {$address}");
+            expect($found?->endBinary)->toBe($interval->endBinary, "wrong interval for {$address}");
+            expect($found?->globallyReachable)->toBe($interval->globallyReachable, "wrong verdict for {$address}");
+            expect($found?->denyReason)->toBe($interval->denyReason, "wrong deny reason for {$address}");
+            expect($table->reachabilityOf($found))->toBe($interval->reachability(), "wrong reachability for {$address}");
+        }
+    }
+});
+
+it('treats an address outside every interval as Unclassified, not as allowed', function () {
+    expect(IpClassificationTable::default()->reachabilityOf(null))->toBe(Reachability::Unclassified);
+});
+
 it('finds exactly one interval for canonical addresses and none for garbage', function () {
     $table = IpClassificationTable::default();
 

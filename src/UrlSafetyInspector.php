@@ -183,15 +183,13 @@ final class UrlSafetyInspector
         }
 
         $interval = $this->classificationTable->intervalFor($ip);
-        if ($interval === null) {
-            // 分類表が壊れている / 正準な IP 表記でない。既定拒否に倒す。
-            return SsrfDenyReason::NotGloballyReachable;
-        }
+        $reachability = $this->classificationTable->reachabilityOf($interval);
 
-        return match ($interval->reachability()) {
+        return match ($reachability) {
             Reachability::PublicUnicast => null,
-            Reachability::NotGloballyReachable => $interval->denyReason ?? SsrfDenyReason::NotGloballyReachable,
+            // 分類表が壊れている / 正準な IP 表記でない。既定拒否に倒す。
             Reachability::Unclassified => SsrfDenyReason::NotGloballyReachable,
+            Reachability::NotGloballyReachable => $interval->denyReason ?? SsrfDenyReason::NotGloballyReachable,
         };
     }
 

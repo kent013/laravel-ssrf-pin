@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Kent013\SsrfPin\Ip;
 
+use Kent013\SsrfPin\Enums\Reachability;
 use Kent013\SsrfPin\Enums\SsrfDenyReason;
 use RuntimeException;
 use Webmozart\Assert\Assert;
@@ -135,6 +136,18 @@ final class IpClassificationTable
         }
 
         return null;
+    }
+
+    /**
+     * `intervalFor()` の結果を到達性の三分法へ写す。
+     *
+     * 区間に当たらなかった（= null）は `Unclassified` であり、**許可ではない**。
+     * 呼び出し側が「当たらなかった」を独自解釈して allow へ倒さないよう、
+     * 写像をここに 1 本化する。
+     */
+    public function reachabilityOf(?IpClassificationInterval $interval): Reachability
+    {
+        return $interval?->reachability() ?? Reachability::Unclassified;
     }
 
     /**
