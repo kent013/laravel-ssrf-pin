@@ -17,6 +17,12 @@ enum SsrfDenyReason: string
     case LinkLocal = 'link_local';
     case Multicast = 'multicast';
     case Reserved = 'reserved';
+    /**
+     * v0.4: 完全区間分類で「公開到達可能」と判定できなかった（= 既定拒否）。
+     * 古典的な区分（loopback / private / link-local / multicast / reserved）に
+     * 当てはまらない非到達区間と、分類表に当たらなかった表記がここに落ちる。
+     */
+    case NotGloballyReachable = 'not_globally_reachable';
     case DisallowedPort = 'disallowed_port';
     case CredentialInUrl = 'credential_in_url';
     case IpLiteralNotAllowed = 'ip_literal_not_allowed';

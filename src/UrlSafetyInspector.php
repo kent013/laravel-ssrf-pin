@@ -6,7 +6,9 @@ namespace Kent013\SsrfPin;
 
 use Kent013\SsrfPin\Contracts\DnsResolverInterface;
 use Kent013\SsrfPin\Dtos\UrlSafetyDecision;
+use Kent013\SsrfPin\Enums\Reachability;
 use Kent013\SsrfPin\Enums\SsrfDenyReason;
+use Kent013\SsrfPin\Ip\IpClassificationTable;
 
 /**
  * URL/IP 安全性検査の SSOT（spirux UrlSafetyGuard + aigenba SsrfGuard の和集合）。
@@ -21,21 +23,14 @@ use Kent013\SsrfPin\Enums\SsrfDenyReason;
  *  7. IP literal（strict canonical のみ）→ classify
  *  8. 非 canonical な数値/8進/16進 IPv4-like → InvalidHost
  *  9. DNS 解決 A+AAAA → 全件 classify → 全 public なら allow（全 IP を pin 対象に）
+ *
+ * v0.4: IP の判定は**列挙型の拒否リストではなく完全区間分類**である
+ * （{@see IpClassificationTable}）。**「公開到達可能」と分類できた区間だけを許可**し、
+ * それ以外（非到達区間・非正準表記・表に当たらない値）はすべて拒否に倒す。
  */
 final class UrlSafetyInspector
 {
-    /** @var list<string> */
-    private const array DENY_CIDRS_V4 = [
-        '0.0.0.0/8', '10.0.0.0/8', '100.64.0.0/10', '127.0.0.0/8',
-        '169.254.0.0/16', '172.16.0.0/12', '192.0.0.0/24', '192.168.0.0/16',
-        '198.18.0.0/15', '224.0.0.0/4', '240.0.0.0/4', '255.255.255.255/32',
-    ];
-
-    /** @var list<string> */
-    private const array DENY_CIDRS_V6 = [
-        '::/128', '::1/128', 'fc00::/7', 'fe80::/10', 'ff00::/8',
-        '64:ff9b::/96', '100::/64', '2001::/23',
-    ];
+    private readonly IpClassificationTable $classificationTable;
 
     /**
      * @param  list<string>  $allowedSchemes
@@ -48,7 +43,16 @@ final class UrlSafetyInspector
         private readonly array $allowedPorts = [80, 443],
         private readonly array $additionalDenyCidrs = [],
         private readonly bool $denyIpLiterals = false,
-    ) {}
+        ?IpClassificationTable $classificationTable = null,
+    ) {
+        $this->classificationTable = $classificationTable ?? IpClassificationTable::default();
+    }
+
+    /** 判定に使っている分類表の版（IANA Special-Purpose Address Registry の発行日）。 */
+    public function classificationRegistryVersion(): string
+    {
+        return $this->classificationTable->registryVersion();
+    }
 
     public function inspect(string $url): UrlSafetyDecision
     {
@@ -156,12 +160,21 @@ final class UrlSafetyInspector
         return strtolower($hostRaw);
     }
 
+    /**
+     * 許可なら null、拒否ならその理由を返す。
+     *
+     * **一致しなければ Public、ではない。** 分類表がその IP を「公開到達可能」と
+     * 明示した場合だけ null（許可）を返し、それ以外はすべて拒否に倒す。
+     * 判定経路は `inet_pton` のバイナリ比較だけで、IP の文字列比較を使わない。
+     */
     private function classifyIp(string $ip): ?SsrfDenyReason
     {
         $ip = $this->normalizeMappedIpv4($ip);
+
+        // アプリが足した追加 deny（CIDR 表記の入力なので文字列を解釈する経路。
+        // 既定は空で、判定の本体はこの下の完全区間分類である）。
         $isV4 = filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) !== false;
         $isV6 = filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6) !== false;
-
         foreach ($this->additionalDenyCidrs as $cidr) {
             if (($isV4 && str_contains($cidr, '.') && $this->ipv4InCidr($ip, $cidr))
                 || ($isV6 && str_contains($cidr, ':') && $this->ipv6InCidr($ip, $cidr))) {
@@ -169,27 +182,17 @@ final class UrlSafetyInspector
             }
         }
 
-        if ($isV4) {
-            foreach (self::DENY_CIDRS_V4 as $cidr) {
-                if ($this->ipv4InCidr($ip, $cidr)) {
-                    return $this->cidrReason($cidr);
-                }
-            }
-
-            return null;
+        $interval = $this->classificationTable->intervalFor($ip);
+        if ($interval === null) {
+            // 分類表が壊れている / 正準な IP 表記でない。既定拒否に倒す。
+            return SsrfDenyReason::NotGloballyReachable;
         }
 
-        if ($isV6) {
-            foreach (self::DENY_CIDRS_V6 as $cidr) {
-                if ($this->ipv6InCidr($ip, $cidr)) {
-                    return $this->cidrReason($cidr);
-                }
-            }
-
-            return null;
-        }
-
-        return SsrfDenyReason::InvalidHost;
+        return match ($interval->reachability()) {
+            Reachability::PublicUnicast => null,
+            Reachability::NotGloballyReachable => $interval->denyReason ?? SsrfDenyReason::NotGloballyReachable,
+            Reachability::Unclassified => SsrfDenyReason::NotGloballyReachable,
+        };
     }
 
     /** IPv4-mapped IPv6（::ffff:x.y.z.w / hex form）を IPv4 へ。 */
@@ -249,18 +252,5 @@ final class UrlSafetyInspector
         $maskByte = chr((0xFF << (8 - $remainder)) & 0xFF);
 
         return (substr($ipBin, $bytes, 1) & $maskByte) === (substr($subnetBin, $bytes, 1) & $maskByte);
-    }
-
-    private function cidrReason(string $cidr): SsrfDenyReason
-    {
-        return match (true) {
-            str_starts_with($cidr, '127.') || $cidr === '::1/128' => SsrfDenyReason::Loopback,
-            str_starts_with($cidr, '169.254.') || str_starts_with($cidr, 'fe80::') => SsrfDenyReason::LinkLocal,
-            str_starts_with($cidr, '224.') || str_starts_with($cidr, 'ff00::') => SsrfDenyReason::Multicast,
-            str_starts_with($cidr, '10.') || str_starts_with($cidr, '172.16.')
-                || str_starts_with($cidr, '192.168.') || str_starts_with($cidr, '100.64.')
-                || str_starts_with($cidr, 'fc00::') => SsrfDenyReason::PrivateRange,
-            default => SsrfDenyReason::Reserved,
-        };
     }
 }

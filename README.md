@@ -96,10 +96,33 @@ compression bomb is stopped by the same limit.
 
 ## Design
 
-- **Guard** (`UrlSafetyInspector`): scheme/port allowlist, credential rejection, host normalization (IDN, trailing dot, zone-id, strict-canonical IPv4, octal/hex/decimal rejection, IPv4-mapped IPv6), deny CIDRs (loopback/private/link-local/multicast/reserved), A+AAAA resolution with all-records validation.
+- **Guard** (`UrlSafetyInspector`): scheme/port allowlist, credential rejection, host normalization (IDN, trailing dot, zone-id, strict-canonical IPv4, octal/hex/decimal rejection, IPv4-mapped IPv6), **complete-interval IP classification** (v0.4, see below), A+AAAA resolution with all-records validation.
 - **Pin** (`GuzzleCurlTransport`): connects via an internally-constructed Guzzle `CurlHandler` only; `CURLOPT_RESOLVE` is a **required** argument of `PinnedCurlTransportInterface::send()` so pin cannot be bypassed; fail-secure (`CurlHandlerUnavailable`) when curl/libcurl is unusable.
 - **Hop loop** (`PinnedHttpClient`): `allow_redirects=false` + explicit loop; every hop goes through the same inspect → pin → send pipeline; per-hop deadline budget; scheme-downgrade rejection; max-hops cap; body sent on the first hop only; optional non-following mode (`followRedirects: false`).
 - **Body limit** (`ByteLimitedStream`): the response sink refuses the chunk that would cross `maxBodyBytes`, aborting the transfer inside libcurl's write callback (fail-closed, never truncating).
+
+## IP classification (v0.4)
+
+Up to v0.3 the guard denied an **enumerated list of CIDRs**, so any special-purpose range missing
+from the list was allowed (`192.0.2.0/24`, `198.51.100.0/24`, `203.0.113.0/24`, `192.88.99.0/24`,
+`2001:db8::/32`, `2002::/16`, `3fff::/20`, `5f00::/16` all leaked through).
+
+v0.4 replaces it with a **complete interval classification**: `resources/ip-classification.json`
+partitions the whole IPv4 and IPv6 space into contiguous, non-overlapping intervals, each carrying
+`globally_reachable`. **An address is allowed only when it lands in an interval marked
+globally reachable** — "did not match a deny rule" is no longer an allow.
+
+- `IpClassificationTable` validates the partition when loading (gap / overlap / missing verdict /
+  unknown deny reason all throw). A broken table can never silently fail open.
+- Lookups are a binary search over `inet_pton` byte strings. **No string comparison on the
+  judgement path** (`str_starts_with` etc. are gone from the classifier).
+- New deny reason `SsrfDenyReason::NotGloballyReachable` covers intervals that do not fall into a
+  classic category, and any address the table cannot classify.
+- `registry_version` pins the IANA Special-Purpose Address Registry edition the table was copied
+  from. **Staleness is not detectable by machine** — if IANA registers a new special-purpose range,
+  an old table keeps calling it public. Audit the version quarterly.
+- Deliberate deviations from the registry (always in the stricter direction) are recorded in the
+  `deviations` field of the JSON.
 
 ## Testing
 
